@@ -1,17 +1,64 @@
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import './index.css';
-import App from './App';
-import reportWebVitals from './reportWebVitals';
+import express from 'express';
+import cors from 'cors';
+import morgan from 'morgan';
+import routes from './routes/index.route';
+import path from 'node:path';
+import dotenv from 'dotenv';
+import http from 'http'
+import {checkConnect, dbConnect} from './utils/db.js';
+import { fileURLToPath } from 'node:url';
+import { Server } from 'socket.io';
+const corsOptions = {
+  origin: '*',
+};
 
-const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
-);
+const app = express();
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: corsOptions
+})
 
-// If you want to start measuring performance in your app, pass a function
-// to log results (for example: reportWebVitals(console.log))
-// or send to an analytics endpoint. Learn more: https://bit.ly/CRA-vitals
-reportWebVitals();
+
+
+// Express setup
+app.use(express.urlencoded({ extended: false }));
+app.use(express.json());
+app.use(cors(corsOptions));
+app.use(morgan('dev'));
+app.use("/api", routes);
+app.use(cors(corsOptions))
+
+dotenv.config();
+
+// dirname setup
+const PORT = process.env.PORT || 5000;
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Setup public folder
+app.use(express.static(path.join(__dirname, 'public')));
+
+// set up routes
+
+app.get('/', (req, res) => {
+  res.send('API is ready on ' + new Date());
+});
+
+io.on("connection", (socket) => {
+  console.log(`user ${socket.id} connect to socket server`);
+})
+
+//Start server
+dbConnect()
+    .then((message) => {
+        console.log(message);
+    })
+    .catch((err) => console.log(err));
+
+if (checkConnect) {
+  server.listen(PORT, () => {
+    console.log(`socket is listening on port ${PORT}`)
+  })
+}else{
+  server.close();
+}
